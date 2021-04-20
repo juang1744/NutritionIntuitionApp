@@ -1,21 +1,46 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { StyleSheet, View, Image, Pressable, Keyboard } from "react-native";
 import { useNavigation } from "@react-navigation/native";
+import jwt_decode from "jwt-decode";
+import {
+    setItemAsync as storeItem,
+    getItemAsync as retrieveItem,
+} from "expo-secure-store";
 
-import LoginForm from "./___LoginForm";
-import RegisterStep1Form from "./___RegisterStep1Form";
-import RegisterStep2Form from "./___RegisterStep2Form";
-import RegisterStep3Form from "./___RegisterStep3Form";
-import EmailConfirmationForm from "./___EmailConfirmationForm";
-import PasswordResetForm from "./___PasswordResetForm";
-import * as API from "./_API";
-import Colors from "./_Colors";
+import * as API from "./___API";
+import Colors from "./___Colors";
+import LoginForm from "./_Form_Login";
+import RegisterStep1Form from "./_Form_RegisterStep1";
+import RegisterStep2Form from "./_Form_RegisterStep2";
+import RegisterStep3Form from "./_Form_RegisterStep3";
+import EmailConfirmationForm from "./_Form_EmailConfirmation";
+import PasswordResetForm from "./_Form_PasswordReset";
 
 export default LoginRegister = () => {
     const navigation = useNavigation();
+    const md5 = require("md5");
 
     const [errorMessage, setErrorMessage] = useState("");
     const [currentStage, setCurrentStage] = useState("login");
+
+    useEffect(() => {
+        (async () => {
+            try {
+                const id = await retrieveItem("userId");
+                const token = await retrieveItem("userJWT");
+
+                if (id === null || token === null) throw "";
+
+                const response = await API.getUserInfo(id, token);
+
+                if (response.error) throw "";
+
+                navigation.navigate("Home");
+            } catch (error) {
+                setErrorMessage(error.toString());
+            }
+        })();
+    }, []);
 
     const [usernameInput, setUsernameInput] = useState("");
     const [passwordInput, setPasswordInput] = useState("");
@@ -53,12 +78,16 @@ export default LoginRegister = () => {
             if (usernameInput.trim() === "") throw "No Username provided";
             if (passwordInput.trim() === "") throw "No Password provided";
 
-            const response = await API.login(usernameInput, passwordInput);
+            const response = await API.login(usernameInput, md5(passwordInput));
 
             if (response.error) throw response.error;
             if (response.id <= 0) throw "User/Password combination incorrect";
 
-            navigation.navigate("Dashboard");
+            const token = response.id.accessToken;
+            await storeItem("userJWT", token);
+            await storeItem("userId", jwt_decode(token).userId);
+
+            navigation.navigate("Home");
         } catch (error) {
             setErrorMessage(error.toString());
         }
@@ -109,6 +138,15 @@ export default LoginRegister = () => {
             if (ageInput.trim() === "") throw "Please enter your Age";
             if (heightInput.trim() === "") throw "Please enter your Height";
 
+            if (genderInput === "male")
+                setCalorieGoalInput(
+                    (Number(weightInput) * 12 * 1.1).toFixed(2)
+                );
+            else
+                setCalorieGoalInput(
+                    (Number(weightInput) * 12 * 1.0).toFixed(2)
+                );
+
             changeStageTo("registerStep3")();
         } catch (error) {
             setErrorMessage(error.toString());
@@ -129,7 +167,7 @@ export default LoginRegister = () => {
             const response = await API.register({
                 login: registerUsernameInput,
                 email: emailInput,
-                password: registerPasswordInput,
+                password: md5(registerPasswordInput),
                 firstName: firstNameInput,
                 lastName: lastNameInput,
                 age: ageInput,
@@ -180,7 +218,7 @@ export default LoginRegister = () => {
 
             const response = await API.sendPasswordResetEmail(
                 recoveryUsernameInput,
-                newPasswordInput
+                md5(newPasswordInput)
             );
 
             if (response.error) throw response.error;

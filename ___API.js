@@ -68,3 +68,36 @@ export async function sendPasswordResetEmail(username, newPassword) {
         }
     ).then((response) => response.json());
 }
+
+export async function getUserInfo(userId, token) {
+    var json = JSON.stringify({
+        userId: userId,
+        jwtToken: token,
+    });
+
+    return await fetch(
+        "https://nutrition-intuition.herokuapp.com/api/viewprofile",
+        {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: json,
+        }
+    ).then((response) => response.json());
+}
+
+export async function searchMealTime(userId, range, token) {
+    var json = JSON.stringify({
+        userId: userId,
+        range: range,
+        jwtToken: token,
+    });
+
+    return await fetch(
+        "https://nutrition-intuition.herokuapp.com/api/searchmealtime",
+        {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: json,
+        }
+    ).then((response) => response.json());
+}
